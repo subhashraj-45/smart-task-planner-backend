@@ -1,0 +1,9 @@
+# Dependency folders
+/node_modules
+
+# Environment variables
+key.env
+.env
+
+# Logs
+*.log
