@@ -18,25 +18,9 @@ dotenv.config({ path: path.join(__dirname, "key.env") });
 const app = express();
 app.use(express.json());
 
-// 🛑 CORS FIX: Whitelist your Vercel Frontend URL
-// REPLACE 'YOUR_VERCEL_FRONTEND_URL' with your actual Vercel domain (e.g., 'https://smart-task-planner-frontend.vercel.app')
-const allowedOrigins = ['YOUR_VERCEL_FRONTEND_URL']; 
-
-const corsOptions = {
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl)
-        if (!origin) return callback(null, true); 
-        // Allow the origin if it is in our allowed list
-        if (allowedOrigins.includes(origin)) { 
-            callback(null, true);
-        } else {
-            // Block other domains
-            callback(new Error('Not allowed by CORS'), false);
-        }
-    }
-};
-
-app.use(cors(corsOptions)); // <-- Apply custom CORS options
+// 🛑 TEMPORARY FIX: Allow all origins to definitively prove the CORS issue. 
+// This will be reverted to the secure whitelist once the app works.
+app.use(cors()); 
 
 // ===== MongoDB connection =====
 if (process.env.MONGO_URI) {
