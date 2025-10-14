@@ -1,20 +1,22 @@
-// server.js
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import OpenAI from "openai";
-import path from "path";
-import { fileURLToPath } from "url";
-import mongoose from "mongoose";
-import Task from "./models/Task.js"; // ✅ Import Task model
+// server.js (COMMONJS SYNTAX)
 
-// ===== Fix for __dirname in ES modules =====
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// 1. Replace 'import' with 'require()' for all external and internal packages
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const OpenAI = require("openai");
+const path = require("path");
+const mongoose = require("mongoose");
+// ✅ Import Task model using require()
+const Task = require("./models/Task");
+
+// ===== Fix for __dirname in CommonJS (it's built-in, no need for path/url imports) =====
+// In CommonJS, __dirname and __filename are natively available.
+// We remove the unused path and url imports.
 
 // ===== Load environment variables =====
-// Make sure your key.env file is in the same directory as server.js
-dotenv.config({ path: path.resolve(__dirname, "./key.env") });
+// Use path.join(__dirname, 'key.env') for clarity
+dotenv.config({ path: path.join(__dirname, "key.env") });
 
 // ===== Initialize app =====
 const app = express();
@@ -69,7 +71,7 @@ Goal: "${goal}"
     `;
 
     const response = await client.chat.completions.create({
-      model: "gpt-4o-mini", // ✅ use a modern, faster model
+      model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.6,
     });

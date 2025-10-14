@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const TaskSchema = new mongoose.Schema({
   goal: { type: String, required: true },
@@ -6,4 +6,5 @@ const TaskSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-export default mongoose.model("Task", TaskSchema);
+// 🛑 The change: Use module.exports instead of export default
+module.exports = mongoose.model("Task", TaskSchema);
