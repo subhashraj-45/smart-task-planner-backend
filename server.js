@@ -1,4 +1,5 @@
 // server.js (COMMONJS SYNTAX)
+// FULLY SECURE VERSION WITH FINAL VERCEL CORS WHITELIST
 
 // 1. Replace 'import' with 'require()' for all external and internal packages
 const express = require("express");
@@ -14,13 +15,26 @@ const Task = require("./models/Task");
 // In CommonJS, __dirname is natively available.
 dotenv.config({ path: path.join(__dirname, "key.env") });
 
-// ===== Initialize app and CORS Configuration (THE FIX) =====
+// ===== Initialize app and CORS Configuration (THE SECURE FIX) =====
 const app = express();
 app.use(express.json());
 
-// 🛑 TEMPORARY FIX: Allow all origins to definitively prove the CORS issue. 
-// This will be reverted to the secure whitelist once the app works.
-app.use(cors()); 
+// 🛑 FINAL SECURE CORS FIX: Whitelist your Vercel Frontend URL
+const allowedOrigins = ['https://smart-task-planner-frontend.vercel.app']; 
+
+const corsOptions = {
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl) and the whitelisted domain
+        if (!origin || allowedOrigins.includes(origin)) { 
+            callback(null, true);
+        } else {
+            // Block all other domains
+            callback(new Error(`Not allowed by CORS: ${origin}`), false);
+        }
+    }
+};
+
+app.use(cors(corsOptions)); // <-- Apply secure CORS options
 
 // ===== MongoDB connection =====
 if (process.env.MONGO_URI) {
