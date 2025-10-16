@@ -19,129 +19,133 @@ dotenv.config({ path: path.join(__dirname, "key.env") });
 const app = express();
 app.use(express.json());
 
-// 🛑 FINAL SECURE CORS FIX: Whitelist your Vercel Frontend URL
-const allowedOrigins = ['https://smart-task-planner-frontend.vercel.app']; 
+// 🛑 FINAL SECURE CORS FIX: Whitelist your Vercel Frontend URL(s)
+const allowedOrigins = [
+    'https://smart-task-planner-frontend.vercel.app', // Your original primary URL
+    'https://smart-task-planner-6czxzq6wt-subhashs-projects-4907bcac.vercel.app' // ⬅️ NEW: Added the failing Vercel branch URL
+]; 
 
 const corsOptions = {
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl) and the whitelisted domain
-        if (!origin || allowedOrigins.includes(origin)) { 
-            callback(null, true);
-        } else {
-            // Block all other domains
-            callback(new Error(`Not allowed by CORS: ${origin}`), false);
-        }
-    }
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl) and the whitelisted domain
+        if (!origin || allowedOrigins.includes(origin)) { 
+            callback(null, true);
+        } else {
+            // Block all other domains
+            callback(new Error(`Not allowed by CORS: ${origin}`), false);
+        }
+    }
 };
 
 app.use(cors(corsOptions)); // <-- Apply secure CORS options
 
 // ===== MongoDB connection =====
 if (process.env.MONGO_URI) {
-    mongoose
-        .connect(process.env.MONGO_URI)
-        .then(() => console.log("✅ MongoDB connected"))
-        .catch((e) => console.warn("⚠️ MongoDB connection error:", e));
+    mongoose
+        .connect(process.env.MONGO_URI)
+        .then(() => console.log("✅ MongoDB connected"))
+        .catch((e) => console.warn("⚠️ MongoDB connection error:", e));
 } else {
-    console.warn("⚠️ No MONGO_URI found in key.env — skipping database connection.");
+    console.warn("⚠️ No MONGO_URI found in key.env — skipping database connection.");
 }
 
 // ===== Debug check for API key =====
 console.log(
-    "OPENAI_API_KEY:",
-    process.env.OPENAI_API_KEY ? "Loaded ✅" : "Missing ❌"
+    "OPENAI_API_KEY:",
+    process.env.OPENAI_API_KEY ? "Loaded ✅" : "Missing ❌"
 );
 
 // ===== Initialize OpenAI client =====
 const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY,
 });
 
 // ===== Utility: safe JSON parser =====
 const safeJSONParse = (text) => {
-    try {
-        return JSON.parse(text);
-    } catch {
-        return null;
-    }
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
 };
 
 // ===== ROUTE: Generate task plan =====
 app.post("/generate-plan", async (req, res) => {
-    try {
-        const { goal } = req.body;
-        if (!goal) return res.status(400).json({ error: "Goal is required" });
+    try {
+        const { goal } = req.body;
+        if (!goal) return res.status(400).json({ error: "Goal is required" });
 
-        const prompt = `
+        const prompt = `
 Break down this goal into actionable tasks with suggested deadlines
 and dependencies. Respond strictly in valid JSON format like this:
 
 [
-  { "task": "Example task", "deadline": "YYYY-MM-DD or Day 1", "depends_on": [] }
+  { "task": "Example task", "deadline": "YYYY-MM-DD or Day 1", "depends_on": [] }
 ]
 
 Goal: "${goal}"
-        `;
+        `;
 
-        const response = await client.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.6,
-        });
+        const response = await client.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.6,
+        });
 
-        let result = response.choices?.[0]?.message?.content?.trim() || "[]";
-        console.log("🧠 AI raw output:", result);
+        let result = response.choices?.[0]?.message?.content?.trim() || "[]";
+        console.log("🧠 AI raw output:", result);
 
-        // 🧹 Clean markdown code fences (```json ... ```)
-        if (result.startsWith("```")) {
-            result = result.replace(/```json|```/g, "").trim();
-        }
+        // 🧹 Clean markdown code fences (```json ... ```)
+        if (result.startsWith("```")) {
+            result = result.replace(/```json|```/g, "").trim();
+        }
 
-        const parsed = safeJSONParse(result);
-        if (!parsed || !Array.isArray(parsed)) {
-            return res.status(500).json({
-                error: "AI returned invalid JSON format",
-                raw: result,
-            });
-        }
+        const parsed = safeJSONParse(result);
+        if (!parsed || !Array.isArray(parsed)) {
+            return res.status(500).json({
+                error: "AI returned invalid JSON format",
+                raw: result,
+            });
+        }
 
-        // ✅ Sanitize output
-        const sanitized = parsed.map((p, i) => ({
-            id: `task-${i + 1}`,
-            task: p.task || `Task ${i + 1}`,
-            deadline: p.deadline || "",
-            depends_on: Array.isArray(p.depends_on) ? p.depends_on : [],
-        }));
+        // ✅ Sanitize output
+        const sanitized = parsed.map((p, i) => ({
+            id: `task-${i + 1}`,
+            task: p.task || `Task ${i + 1}`,
+            deadline: p.deadline || "",
+            depends_on: Array.isArray(p.depends_on) ? p.depends_on : [],
+        }));
 
-        // ✅ Save to MongoDB if connected
-        if (mongoose.connection.readyState === 1) {
-            try {
-                await Task.create({ goal, plan: sanitized });
-                console.log("💾 Task plan saved to MongoDB");
-            } catch (dbErr) {
-                console.warn("⚠️ Failed to save to DB:", dbErr.message);
-            }
-        }
+        // ✅ Save to MongoDB if connected
+        if (mongoose.connection.readyState === 1) {
+            try {
+                await Task.create({ goal, plan: sanitized });
+                console.log("💾 Task plan saved to MongoDB");
+            } catch (dbErr) {
+                console.warn("⚠️ Failed to save to DB:", dbErr.message);
+            }
+        }
 
-        // ✅ Return plan
-        res.json({ goal, plan: sanitized });
-    } catch (err) {
-        console.error("❌ Error generating plan:", err.message);
-        res.status(500).json({ error: "Failed to generate plan" });
-    }
+        // ✅ Return plan
+        res.json({ goal, plan: sanitized });
+    } catch (err) {
+        console.error("❌ Error generating plan:", err.message);
+        res.status(500).json({ error: "Failed to generate plan" });
+    }
 });
 
 // ===== ROUTE: Get all saved plans =====
 app.get("/plans", async (req, res) => {
-    try {
-        const plans = await Task.find().sort({ createdAt: -1 });
-        res.json(plans);
-    } catch (err) {
-        console.error("❌ Error fetching plans:", err.message);
-        res.status(500).json({ error: "Failed to fetch plans" });
-    }
+    try {
+        const plans = await Task.find().sort({ createdAt: -1 });
+        res.json(plans);
+    } catch (err) {
+        console.error("❌ Error fetching plans:", err.message);
+        res.status(500).json({ error: "Failed to fetch plans" });
+    }
 });
 
 // ===== START SERVER =====
 const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
