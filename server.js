@@ -20,7 +20,7 @@ const app = express();
 app.use(express.json());
 
 // 🛑 FINAL SECURE CORS FIX: Whitelist your Vercel Frontend URL
-const allowedOrigins = ['https://smart-task-planner-frontend.vercel.app']; 
+const allowedOrigins = ['https://smart-task-planner-frontend-henna.vercel.app/']; 
 
 const corsOptions = {
     origin: function (origin, callback) {
