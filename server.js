@@ -19,11 +19,8 @@ dotenv.config({ path: path.join(__dirname, "key.env") });
 const app = express();
 app.use(express.json());
 
-// 🛑 FINAL SECURE CORS FIX: Whitelist your Vercel Frontend URL(s)
-const allowedOrigins = [
-    'https://smart-task-planner-frontend.vercel.app', // Your original primary URL
-    'https://smart-task-planner-6czxzq6wt-subhashs-projects-4907bcac.vercel.app' // ⬅️ NEW: Added the failing Vercel branch URL
-]; 
+// 🛑 FINAL SECURE CORS FIX: Whitelist your Vercel Frontend URL
+const allowedOrigins = ['https://smart-task-planner-frontend.vercel.app']; 
 
 const corsOptions = {
     origin: function (origin, callback) {
@@ -147,5 +144,4 @@ app.get("/plans", async (req, res) => {
 
 // ===== START SERVER =====
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));                                              
