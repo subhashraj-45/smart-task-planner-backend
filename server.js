@@ -1,39 +1,41 @@
-// server.js (COMMONJS SYNTAX - FINAL VERSION)
+// server.js (COMMONJS SYNTAX)
+// FULLY SECURE VERSION WITH FINAL VERCEL CORS WHITELIST
+
+// 1. Replace 'import' with 'require()' for all external and internal packages
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const OpenAI = require("openai");
 const path = require("path");
 const mongoose = require("mongoose");
-const Task = require("./models/Task"); // Assuming Task model is in ./models/Task
+// ✅ Import Task model using require()
+const Task = require("./models/Task");
 
-// ===== Environment Setup (For Local Testing) =====
+// ===== Environment Setup =====
+// In CommonJS, __dirname is natively available.
 dotenv.config({ path: path.join(__dirname, "key.env") });
 
-// ===== Initialize app and CORS Configuration (THE FINAL FIX) =====
+// ===== Initialize app and CORS Configuration (THE SECURE FIX) =====
 const app = express();
 app.use(express.json());
 
 // 🛑 FINAL SECURE CORS FIX: Whitelist your Vercel Frontend URL
-// NOTE: I removed the trailing slash for maximum compatibility.
-const allowedOrigins = ['https://smart-task-planner-frontend-henna.vercel.app']; 
+const allowedOrigins = ['https://smart-task-planner-frontend-henna.vercel.app'];  // Removed the '/'
 
 const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl) and the whitelisted domain
+        // ... logic remains the same
         if (!origin || allowedOrigins.includes(origin)) { 
             callback(null, true);
         } else {
-            // Block all other domains
+            // ...
             callback(new Error(`Not allowed by CORS: ${origin}`), false);
         }
     }
 };
-
 app.use(cors(corsOptions)); // <-- Apply secure CORS options
 
 // ===== MongoDB connection =====
-// (Same MongoDB connection logic)
 if (process.env.MONGO_URI) {
     mongoose
         .connect(process.env.MONGO_URI)
@@ -43,8 +45,13 @@ if (process.env.MONGO_URI) {
     console.warn("⚠️ No MONGO_URI found in key.env — skipping database connection.");
 }
 
+// ===== Debug check for API key =====
+console.log(
+    "OPENAI_API_KEY:",
+    process.env.OPENAI_API_KEY ? "Loaded ✅" : "Missing ❌"
+);
+
 // ===== Initialize OpenAI client =====
-// NOTE: Ensure OPENAI_API_KEY is set in Render's environment variables!
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
@@ -67,9 +74,11 @@ app.post("/generate-plan", async (req, res) => {
         const prompt = `
 Break down this goal into actionable tasks with suggested deadlines
 and dependencies. Respond strictly in valid JSON format like this:
+
 [
   { "task": "Example task", "deadline": "YYYY-MM-DD or Day 1", "depends_on": [] }
 ]
+
 Goal: "${goal}"
         `;
 
@@ -80,6 +89,8 @@ Goal: "${goal}"
         });
 
         let result = response.choices?.[0]?.message?.content?.trim() || "[]";
+        console.log("🧠 AI raw output:", result);
+
         // 🧹 Clean markdown code fences (```json ... ```)
         if (result.startsWith("```")) {
             result = result.replace(/```json|```/g, "").trim();
@@ -87,21 +98,25 @@ Goal: "${goal}"
 
         const parsed = safeJSONParse(result);
         if (!parsed || !Array.isArray(parsed)) {
-            return res.status(500).json({ error: "AI returned invalid JSON format", raw: result });
+            return res.status(500).json({
+                error: "AI returned invalid JSON format",
+                raw: result,
+            });
         }
 
-        // ✅ Sanitize and format output to match frontend structure
+        // ✅ Sanitize output
         const sanitized = parsed.map((p, i) => ({
             id: `task-${i + 1}`,
-            task: p.task || p.title || `Task ${i + 1}`, // Fallback check
+            task: p.task || `Task ${i + 1}`,
             deadline: p.deadline || "",
-            depends_on: Array.isArray(p.depends_on) ? p.depends_on : p.dependsOn || [],
+            depends_on: Array.isArray(p.depends_on) ? p.depends_on : [],
         }));
 
-        // ✅ Save to MongoDB if connected (same logic)
+        // ✅ Save to MongoDB if connected
         if (mongoose.connection.readyState === 1) {
             try {
                 await Task.create({ goal, plan: sanitized });
+                console.log("💾 Task plan saved to MongoDB");
             } catch (dbErr) {
                 console.warn("⚠️ Failed to save to DB:", dbErr.message);
             }
@@ -115,7 +130,7 @@ Goal: "${goal}"
     }
 });
 
-// ===== ROUTE: Get all saved plans (same logic) =====
+// ===== ROUTE: Get all saved plans =====
 app.get("/plans", async (req, res) => {
     try {
         const plans = await Task.find().sort({ createdAt: -1 });
@@ -128,4 +143,4 @@ app.get("/plans", async (req, res) => {
 
 // ===== START SERVER =====
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));                                              
